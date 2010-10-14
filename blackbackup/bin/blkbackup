@@ -106,26 +106,26 @@ blkmountbkdir() {
   returnval=0
   case $BLK_NETW_TYPE in
     NFS )
-    blklog "| NETW NFS MOUNT    | Mount $BLK_NFS_IP:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
-    mount -t nfs $BLK_NFS_IP:$BLK_NFS_DIR $BLK_BACKUPBASEDIR
+    blklog "| NETW NFS MOUNT    | Mount $BLK_NFS_HOST:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
+    mount -t nfs $BLK_NFS_HOST:$BLK_NFS_DIR $BLK_BACKUPBASEDIR
     blktempcheck=$?
     if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
     then
       blklog "| NETW NFS MNT OK   | Successfully mounted $BLK_BACKUPBASEDIR"
     else
-      blklog "| NETW NFS MNT NOK  | Failed to mount $BLK_NFS_IP:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
+      blklog "| NETW NFS MNT NOK  | Failed to mount $BLK_NFS_HOST:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
       returnval=$BLK_NETW_NFS_FAIL
     fi
     ;;
     SMB )
-    blklog "| NETW SMB MOUNT    | Mount //$BLK_SMB_IP/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
-    mount -t smbfs -o username=$BLK_SMB_USR,password=$BLK_SMB_PASS //$BLK_SMB_IP/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
+    blklog "| NETW SMB MOUNT    | Mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
+    mount -t smbfs -o username=$BLK_SMB_USR,password=$BLK_SMB_PASS //$BLK_SMB_HOST/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
     blktempcheck=$?
     if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
     then
       blklog "| NETW SMB MNT OK   | Successfully mounted $BLK_BACKUPBASEDIR"
     else
-      blklog "| NETW SMB MNT NOK  | Failed to mount //$BLK_SMB_IP/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
+      blklog "| NETW SMB MNT NOK  | Failed to mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
       returnval=$BLK_NETW_SMB_FAIL
     fi
     ;;
