@@ -1,0 +1,138 @@
++-----------------------------------------------------------------------------+
+| BLACK backup script                            (c) 2006 - 2007 Ike Devolder |
+| This script can backup all the homedirectories, predefined data directories |
+| and also backups the settings (mostly located in /etc)                      |
+| for more information mailto: devolderike@yahoo.com                          |
+| You can redistribute, modify this script as you wish according to the       |
+| the licence                                                                 |
+| This script is provided "as-is" and licenced under GPLv3                    |
+| For more information read LICENCE.txt                                       |
++-----------------------------------------------------------------------------+
+
+###############################################################################
+# Version History                                                             #
+#                                                                             #
+# 1.8.2                                                                       #
+# -----                                                                       #
+# changed from week-day format to year-month-day format                       #
+#                                                                             #
+# 1.8.1 new features version (rc1 2.0.0) not yet implemented proposals        #
+# -----                                                                       #
+# add retry possibility                                                       #
+# add new entry in config file to set maximum retry value                     #
+# add timing to give extended information in the logfile                      #
+#                                                                             #
+# 1.8.0 major change version (rc1 2.0.0)                                      #
+# -----                                                                       #
+# changed most parts into functions                                           #
+# script exits more beautiful (cleanup functionality)                         #
+#                                                                             #
+# 1.7.0 samba version (beta 2.0.0)                                            #
+# -----                                                                       #
+# added networking support for smb (windows) shares                           #
+# changed some exit codes because of the smb addition                         #
+# changed some logging and checks because of the smb addition                 #
+# fixed typo in logging when creating backupdirectory                         #
+#                                                                             #
+# 1.6.3 bugfix version (beta 2.0.0)                                           #
+# -----                                                                       #
+# fixed function name bug + change check for weekbackup, took to much time    #
+#                                                                             #
+# 1.6.2 bugfix version (beta 2.0.0)                                           #
+# -----                                                                       #
+# fixed small bugs in newly added check                                       #
+#                                                                             #
+# 1.6.1 bugfix version (beta 2.0.0)                                           #
+# -----                                                                       #
+# added check if the weekbackup exists, if not create one the first weekday   #
+#  possible                                                                   #
+# changed the way blkbackup is called to make the above check possible        #
+# changed logging in function of the above check                              #
+#                                                                             #
+# 1.6.0 bugfix version (beta 2.0.0)                                           #
+# -----                                                                       #
+# finalized complete rewrite, all functions should be working                 #
+# new features coming for the next release                                    #
+#                                                                             #
+# 1.5.6 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# rewritten blkdelold function                                                #
+# removed the possibility to choose the day wich will be used for weekbackup  #
+#                                                                             #
+# 1.5.5 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# fixed bugs in the new structure, and did some thouroug testing              #
+#                                                                             #
+# 1.5.4 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# change functionname blkbackup to blkpack and create new function blkbackup  #
+#  where the whole flow for a backup is specified                             #
+# because of the functionchanges some loggings are changed to make it more    #
+#  readable                                                                   #
+#                                                                             #
+# 1.5.3 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# fixed double check of existing files                                        #
+#                                                                             #
+# 1.5.2 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# backup of the homedirectories works, datadirs and settingsdir just give an  #
+#  echo as output                                                             #
+# changed some loggings, they were copied from before the rewrite and gave    #
+#  misleading information to the reader                                       #
+#                                                                             #
+# 1.5.1 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# added blkcheck function, this function will determine wich action has to be #
+#  taken                                                                      #
+# added blkbackup function, this function will make the effective backup      #
+# added blkremove function, this function will remove specified files         #
+#                                                                             #
+# 1.5.0 pure development version (alpha 2.0.0)                                #
+# -----                                                                       #
+# initial rewrite of the script to make it more extendable                    #
+# alpha version for 2.0.0 (wich will have a lot of extra functionality        #
+# added exit status numbers, statuses can be found in the configfile          #
+# split config file in user settings and script settings                      #
+# changed homes backup to an optional backup                                  #
+# changed special actions                                                     #
+# added check for config settings, scripts ends with exit code if required    #
+#  settings fail                                                              #
+#                                                                             #
+# 1.3.1                                                                       #
+# -----                                                                       #
+# added extra logging + bugfixes                                              #
+# included version history in script                                          #
+#                                                                             #
+# 1.3.0                                                                       #
+# -----                                                                       #
+# added logging + extra checks + small changes in the sequence                #
+# fixed minor bug in the special actions part                                 #
+#                                                                             #
+# 1.2.0                                                                       #
+# -----                                                                       #
+# changes in config file to add special actions, like stopping some services  #
+#  to make sure those aren't locking files you want to update                 #
+#                                                                             #
+# 1.1.0                                                                       #
+# -----                                                                       #
+# added checks and creation of backupdirs                                     #
+# added nfs mount possibility + changes in config                             #
+# changed the functionality of the blkdelold function, mostly improvement     #
+# added functionality to backup user defined data directories                 #
+# fixed many functional errors                                                #
+# added functionality to backup more computers to one backupdir               #
+#                                                                             #
+# 1.0.0                                                                       #
+# -----                                                                       #
+# made this script portable to other linux machines                           #
+# added config file for portability                                           #
+#                                                                             #
+# 0.9.0 and before                                                            #
+# ----------------                                                            #
+# script makes backup of homedirectories and /etc to a local dir              #
+# previous versions included small & bigger bugfixes                          #
+# previous versions changed somewhat in functionality, but were always to     #
+#  backup the homedirectories and /etc                                        #
+#                                                                             #
+###############################################################################
