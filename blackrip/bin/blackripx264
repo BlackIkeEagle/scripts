@@ -1,0 +1,313 @@
+#!/bin/bash
+BR_VERSION=0.0.7
+
+BR_debug=0
+
+echo -e '\E[35m'"\033[1m+-----------------------------------------------------------------------------+\033[0m"
+echo -e '\E[35m'"\033[1m| BlackRiP x264                                                               |\033[0m"
+echo -e '\E[35m'"\033[1m| This is a script to rip your DVD's to separate files so you can merge them  |\033[0m"
+echo -e '\E[35m'"\033[1m| together in an mkv container, that you can do with the gui mmg              |\033[0m"
+echo -e '\E[35m'"\033[1m| This script depends on several video / audio tools make sure you have       |\033[0m"
+echo -e '\E[35m'"\033[1m| them installed before running this script.                                  |\033[0m"
+echo -e '\E[35m'"\033[1m| required: mplayer, transcode, ogmtools, mkvtoolnix (with mmg enabled)       |\033[0m"
+echo -e '\E[35m'"\033[1m+-----------------------------------------------------------------------------+\033[0m"
+echo -e '\E[35m'"\033[1m+-- version: ${BR_VERSION} --+\033[0m"
+
+if [ $1 != '' ]
+then
+  BR_loc=$1
+else
+  BR_loc="./"
+fi
+
+# Find out wich title of the dvd is the main movie
+
+echo -e '\E[35m'"\033[1m+ Running mplayer -identify so you can find the main title +\033[0m"
+
+mplayer -dvd-device ${BR_loc} dvd://1 -identify 2>&- <<EOF >temp
+q
+EOF
+cat temp | grep -E 'DVD_TITLE'
+
+echo -e '\E[32m'"\033[1m        Enter the number of the title: \c\033[0m"
+read -e BR_title
+
+echo -e '\E[32m'"\033[1mGive the length of the selected title: \c\033[0m"
+read -e BR_sec
+
+echo -e '\E[32m'"\033[1mDon't forget to copy the correct ifo file to movie.ifo \c\033[0m"
+read -e BR_dummy
+
+rm temp
+
+# Run test so the audio and subtitles can be selected
+
+echo -e '\E[35m'"\033[1m+ Running mplayer -identify so you can find the audio an subs you want +\033[0m"
+
+mplayer -dvd-device ${BR_loc} dvd://${BR_title} -identify 2>&- <<EOF >temp
+q
+EOF
+
+# audio
+echo -e '\E[35m'"\033[1m+ Audio Streams +\033[0m"
+cat temp | grep -E 'AID|audio stream'
+
+BR_temp=y
+BR_audio_count=0
+while [ ${BR_temp} != 'n' ]
+do
+  echo -e '\E[32m'"\033[1m      Give the id of the audio stream: \c\033[0m"
+  read -e BR_audio_id[${BR_audio_count}]
+
+  echo -e '\E[32m'"\033[1m   Give the codec of the audio stream: \c\033[0m"
+  read -e BR_audio_codec[${BR_audio_count}]
+
+  echo -e '\E[32m'"\033[1mGive the channels of the audio stream: \c\033[0m"
+  read -e BR_audio_chan[${BR_audio_count}]
+
+  echo -e '\E[32m'"\033[1mGive the language of the audio stream: \c\033[0m"
+  read -e BR_audio_lang[${BR_audio_count}]
+
+  BR_audio_count=`expr ${BR_audio_count} + 1 `
+
+  echo -e '\E[32m'"\033[1m     Add another audio stream ? (y/n): \c\033[0m"
+  read -e BR_temp
+done
+
+## debug, printout the given values
+if [ ${BR_debug} -eq 1 ]
+then
+  for (( i = 0 ; i < ${#BR_audio_id[@]} ; i++ ))
+  do
+    echo -e "${BR_audio_id[$i]} \c "
+    echo -e "${BR_audio_codec[$i]} \c "
+    echo -e "${BR_audio_chan[$i]} \c "
+    echo -e "${BR_audio_lang[$i]}"
+  done
+fi
+
+
+# subs
+echo -e '\E[35m'"\033[1m+ Subtitle Streams +\033[0m"
+cat temp | grep -E 'SID'
+
+rm temp
+
+BR_temp=y
+BR_sub_count=0
+while [ ${BR_temp} != 'n' ]
+do
+  echo -e '\E[32m'"\033[1m       Give the id of the subtitle stream: \c\033[0m"
+  read -e BR_sub_id[${BR_sub_count}]
+
+  echo -e '\E[32m'"\033[1m Give the language of the subtitle stream: \c\033[0m"
+  read -e BR_sub_lang[${BR_sub_count}]
+
+  BR_sub_count=`expr ${BR_sub_count} + 1 `
+
+  echo -e '\E[32m'"\033[1m      Add another subtitle stream ? (y/n): \c\033[0m"
+  read -e BR_temp
+done
+
+## debug, printout the given values
+if [ ${BR_debug} -eq 1 ]
+then
+  for (( i = 0 ; i < ${#BR_sub_id[@]} ; i++ ))
+  do
+    echo -e "${BR_sub_id[$i]} \c "
+    echo -e "${BR_sub_lang[$i]}"
+  done
+fi
+
+# give aspect ratio and do cropdetect
+echo -e '\E[35m'"\033[1m+ Determine Aspect Ratio +\033[0m"
+mplayer -dvd-device ${BR_loc} dvd://${BR_title} -nosound
+
+echo -e '\E[32m'"\033[1m Give the aspect ratio of the movie: \c\033[0m"
+read -e BR_aspect
+
+echo -e '\E[35m'"\033[1m+ Detect cropping +\033[0m"
+
+mplayer -dvd-device ${BR_loc} dvd://${BR_title} -nosound -vf cropdetect
+
+BR_temp=n
+while [ ${BR_temp} != 'y' ]
+do
+  echo -e '\E[32m'"\033[1mGive the cropping values of the movie: \c\033[0m"
+  read -e BR_crop
+
+  mplayer -dvd-device ${BR_loc} dvd://${BR_title} -nosound -vf crop=${BR_crop} 
+
+  echo -e '\E[32m'"\033[1m Does it look ok ? (y/n): \c\033[0m"
+  read -e BR_temp
+done
+
+echo -e '\E[32m'"\033[1m  Is Deinterlacing required ? (y/n): \c\033[0m"
+read -e BR_deint
+
+echo -e '\E[35m'"\033[1m+ Set scale right +\033[0m"
+
+BR_height=`echo "scale=0; 720 / ${BR_aspect}" | bc`
+echo -e '\E[35m'"\033[1mCalculated: 720 x ${BR_height}\033[0m"
+
+echo -e '\E[35m'"\033[1m+ Make height devidable by 16 +\033[0m"
+
+for (( i = `expr ${BR_height} - 8` ; i < `expr ${BR_height} + 8` ; i++))
+do
+  if (( i%16 == 0 ))
+  then
+    BR_height=$i
+  fi
+done
+echo -e '\E[35m'"\033[1mCalculated: 720 x ${BR_height}\033[0m"
+
+# all required stuff is selected, make nfo
+echo -e '\E[35m'"\033[1m+ Give me some extra information about the movie +\033[0m"
+(( BR_hours=BR_sec/3600 ))
+(( BR_minutes=(BR_sec-(BR_hours*3600) )/60 ))
+(( BR_seconds=BR_sec-(BR_hours*3600)-(BR_minutes*60) ))
+
+echo -e '\E[32m'"\033[1mGive the movie title: \c\033[0m"
+read -e BR_Mtitle
+echo -e '\E[32m'"\033[1mGive the filename title: \c\033[0m"
+read -e BR_Ftitle
+echo -e '\E[32m'"\033[1mGive the imdb url: \c\033[0m"
+read -e BR_Msumm
+echo -e '\E[32m'"\033[1mGive movie year: \c\033[0m"
+read -e BR_Myear
+
+
+echo "                              ±ÛÛÛÛÛ²                                 ±ÛÛÛÛÛ±" > $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "                             ±ÛÛÛÛÛÛÛ                               ²±ÛÛÛÛÛÛ²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "         ²²Û                 ÛÛÛÛ                     ±²²²±         ±ÛÛÛ²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "      ±±²ÛÛÛÛÛÛÛÛÛÛ²        ²ÛÛÛ                     ÛÛÛÛÛÛÛ²²±     ÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ      ²ÛÛÛ±                   ÛÛÛÛÛ²²²ÛÛÛ²   ²ÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  ²ÛÛÛÛÛÛÛÛÛ²     ÛÛÛ      ²ÛÛ±                   ²ÛÛÛÛ    ÛÛÛ²   ±ÛÛÛ²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ÛÛÛÛÛÛÛÛÛÛÛ²     ÛÛÛÛ²    ²ÛÛ²                   ÛÛÛÛ²    ±ÛÛÛ²   ²ÛÛ²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ÛÛÛÛÛ²  ÛÛ²      ÛÛÛ²    ²ÛÛÛ                   ÛÛÛÛ²    ±ÛÛÛÛ±  ²ÛÛÛ±" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ÛÛÛÛ²  ²ÛÛ±    ²ÛÛÛÛ     ÛÛÛ²    ±²²²²±        ÛÛÛÛ²     ²ÛÛÛ²± ±ÛÛÛ²  ²²Û" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ÛÛ²   ²ÛÛÛÛ²²²ÛÛÛÛÛÛ     ÛÛÛÛ    ÛÛÛÛÛÛ²ÛÛ±   ²ÛÛÛÛ      ±²²±   ²ÛÛÛ± ²ÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "      ÛÛÛÛÛÛÛÛÛÛ        ÛÛÛ²    ÛÛÛÛÛ  ÛÛÛ²  ²ÛÛÛ²            ²²ÛÛÛ ÛÛÛÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     ²ÛÛ  ²ÛÛÛÛÛÛ²      ÛÛ²   ±ÛÛÛÛ² ±ÛÛÛÛ²  ÛÛÛÛ             ± ÛÛÛ²ÛÛ²ÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     ÛÛÛ     ÛÛÛÛÛÛ±   ²ÛÛ²  ±ÛÛÛ²   ÛÛÛÛ²   ÛÛÛÛ         ²    ²ÛÛ²ÛÛ² ÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  ÛÛÛÛÛ²       ±ÛÛÛÛÛ ²²ÛÛ±  ÛÛÛ² ²ÛÛÛÛÛÛ²±  ÛÛÛ          ²ÛÛ²±ÛÛÛÛÛÛÛ²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÛÛÛÛÛ²         ÛÛÛÛÛ ²ÛÛÛÛ²ÛÛÛÛ  ²ÛÛÛÛÛÛÛ²  ÛÛÛ        ²ÛÛÛ² ²ÛÛÛÛÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÛÛÛÛÛ²²²        ²ÛÛÛ ²ÛÛÛÛ±ÛÛÛ²²ÛÛÛ²²ÛÛÛÛ±  ÛÛÛ     ²²ÛÛÛÛÛ±²ÛÛÛÛÛ ÛÛÛ²±" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÛÛÛÛÛÛÛÛ²²²²²²²²ÛÛÛ  ²ÛÛÛ± ÛÛÛÛÛÛÛ± ²ÛÛÛ±   ÛÛÛÛ²²²ÛÛÛÛÛÛÛ   ²ÛÛÛÛ ÛÛÛÛÛ²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÛÛÛ²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛ²  ²ÛÛ²  ÛÛÛÛÛÛ²  ²ÛÛÛ²   ±²ÛÛÛÛÛÛÛÛÛÛÛ²   ²ÛÛ²   ±ÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " Û   ²²²²²²²²²²²²²    ±²²   ²²²² ±   ±²Û        ²Û²²²²±   ²   ±²±     ±ÛÛÛÛ²²²" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "                                                  ascii by Black Eagle  ÛÛÛÛÛÛ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     Ü Ü ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ Ü Ü" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÜßÜßÛÛÛÛßÜßÜÛÛÛ²± GENERAL ±²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜßÜßÛÛÛÛßÜßÜ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ß     ß ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß ß     ß" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  Movie title    : $BR_Mtitle" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  Movie year     : $BR_Myear" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  Movie summary  : $BR_Msumm" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  Movie duration : $BR_hours:$BR_minutes:$BR_seconds" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     Ü Ü ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ Ü Ü" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÜßÜßÛÛÛÛßÜßÜÛÛÛ²± VIDEO ±²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜßÜßÛÛÛÛßÜßÜ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ß     ß ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß ß     ß" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  codec          : x264" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  bitrate        : 2500" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  scale          : 720 x $BR_height" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  aspect ratio   : $BR_aspect" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     Ü Ü ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ Ü Ü" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÜßÜßÛÛÛÛßÜßÜÛÛÛ²± AUDIO ±²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜßÜßÛÛÛÛßÜßÜ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ß     ß ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß ß     ß" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+for (( i = 0 ; i < ${#BR_audio_id[@]} ; i++ ))
+do
+  echo -e "  -- AUDIO STREAM $i --" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+  echo -e "  codec          : ${BR_audio_codec[$i]}" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+  echo -e "  channels       : ${BR_audio_chan[$i]}" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+  echo -e "  language       : ${BR_audio_lang[$i]}" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+done
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     Ü Ü ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ Ü Ü" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÜßÜßÛÛÛÛßÜßÜÛÛÛ²± SUBTITLE ±²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜßÜßÛÛÛÛßÜßÜ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ß     ß ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß ß     ß" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+for (( i = 0 ; i < ${#BR_sub_id[@]} ; i++ ))
+do
+  echo -e "  -- SUBTITLE STREAM $i --" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+  echo -e "  language       : ${BR_sub_lang[$i]}" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+done
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     Ü Ü ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ Ü Ü" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÜßÜßÛÛÛÛßÜßÜÛÛÛ²± FILE INFO ±²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜßÜßÛÛÛÛßÜßÜ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ß     ß ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß ß     ß" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "  Filename       : $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.mkv" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " " >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "     Ü Ü ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ Ü Ü" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo " ÜßÜßÛÛÛÛßÜßÜÛÛÛ²± ENJOY THIS MOVIE ±²ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜßÜßÛÛÛÛßÜßÜ" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "ß     ß ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß ß     ß" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+echo "                                                  Generated by BlackRiP ${BR_VERSION}" >> $BR_Ftitle.$BR_Myear.DVDRip.x264-BlaCk.nfo
+
+echo -e " "
+echo -e '\E[35m'"\033[1m#movdmp\c\033[0m "
+mplayer -dvd-device ${BR_loc} dvd://${BR_title} -dumpstream -dumpfile movie.vob 1>&- 2>&-
+echo -e '\E[35m'"\033[1m####\c\033[0m "
+
+echo -e '\E[35m'"\033[1m#chpdmp\c\033[0m "
+dvdxchap -t ${BR_title} ${BR_loc} > chapters.txt
+echo -e '\E[35m'"\033[1m####\c\033[0m "
+
+for (( i = 0 ; i < ${#BR_sub_id[@]} ; i++ ))
+do
+  BR_hexid=`expr 20 + ${BR_sub_id}`
+  echo -e '\E[35m'"\033[1m#sub${i}dmp\c\033[0m "
+  tccat -i movie.vob -L | tcextract -x ps1 -t vob -a 0x${BR_hexid} 2>&- > subs-${BR_sub_id[$i]}-${BR_sub_lang[$i]}
+  subtitle2vobsub -o vobsub-${BR_sub_id[$i]}-${BR_sub_lang[$i]} -i movie.ifo -a ${BR_sub_id[$i]} < subs-${BR_sub_id[$i]}-${BR_sub_lang[$i]}
+  #mencoder -dvd-device ${BR_loc} dvd://${BR_title} -ovc copy -oac copy -aid ${BR_audio_id[0]} -o /dev/null -sid ${BR_sub_id[$i]} -vobsubout ${BR_sub_lang[$i]} 1>&- 2>&-
+  #mencoder movie.vob -ovc copy -oac copy -aid ${BR_audio_id[0]} -o /dev/null -sid ${BR_sub_id[$i]} -vobsubout ${BR_sub_lang[$i]} 1>&- 2>&-
+  echo -e '\E[35m'"\033[1m####\c\033[0m "
+done
+
+for (( i = 0 ; i < ${#BR_audio_id[@]} ; i++ ))
+do
+  echo -e '\E[35m'"\033[1m#aud${i}dmp\c\033[0m "
+  #mplayer -dvd-device ${BR_loc} dvd://${BR_title} -aid ${BR_audio_id[$i]} -dumpaudio -dumpfile audio-${BR_audio_lang[$i]}-${BR_audio_chan[$i]}.${BR_audio_codec[$i]} 1>&- 2>&-
+  mplayer movie.vob -aid ${BR_audio_id[$i]} -dumpaudio -dumpfile audio-${BR_audio_lang[$i]}-${BR_audio_chan[$i]}.${BR_audio_codec[$i]} 1>&- 2>&-
+  echo -e '\E[35m'"\033[1m####\c\033[0m "
+done
+
+echo -e '\E[35m'"\033[1m#start_encoding####\c\033[0m"
+
+echo "#!/bin/bash" > encode.sh
+echo "echo -e '\E[35m'\"\033[1m#vid1sp\c\033[0m \"" >> encode.sh
+if [ ${BR_deint} == 'y' ]
+then
+  #echo "mencoder -dvd-device ${BR_loc} dvd://${BR_title} -sws 3 -vf pullup,softskip,pp=lb,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:bframes=3:b_pyramid:weight_b:pass=1 -of rawvideo -o /dev/null 1>encode_pass1.log 2>&-" >> encode.sh
+  echo "mencoder movie.vob -sws 10 -vf pullup,softskip,pp=lb,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:bframes=3:b_pyramid:weight_b:pass=1 -of rawvideo -o /dev/null 1>encode_pass1.log 2>&-" >> encode.sh
+else
+  #echo "mencoder -dvd-device ${BR_loc} dvd://${BR_title} -sws 3 -vf pullup,softskip,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:bframes=3:b_pyramid:weight_b:pass=1 -of rawvideo -o /dev/null 1>encode_pass1.log 2>&-" >> encode.sh
+  echo "mencoder movie.vob -sws 10 -vf pullup,softskip,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:bframes=3:b_pyramid:weight_b:pass=1 -of rawvideo -o /dev/null 1>encode_pass1.log 2>&-" >> encode.sh
+fi
+echo "echo -e '\E[35m'\"\033[1m####\c\033[0m \"" >> encode.sh
+
+echo "echo -e '\E[35m'\"\033[1m#vid2dp\c\033[0m \"" >> encode.sh
+if [ ${BR_deint} == 'y' ]
+then
+  #echo "mencoder -dvd-device ${BR_loc} dvd://${BR_title} -sws 3 -vf pullup,softskip,pp=lb,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:frameref=2:bframes=3:b_pyramid:weight_b:pass=2 -of rawvideo -o video.h264 1>encode_pass2.log 2>&-" >> encode.sh
+  echo "mencoder movie.vob -sws 10 -vf pullup,softskip,pp=lb,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:frameref=2:bframes=3:b_pyramid:weight_b:pass=2 -of rawvideo -o video.h264 1>encode_pass2.log 2>&-" >> encode.sh
+else
+  #echo "mencoder -dvd-device ${BR_loc} dvd://${BR_title} -sws 3 -vf pullup,softskip,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:frameref=2:bframes=3:b_pyramid:weight_b:pass=2 -of rawvideo -o video.h264 1>encode_pass2.log 2>&-" >> encode.sh
+  echo "mencoder movie.vob -sws 10 -vf pullup,softskip,crop=${BR_crop},scale=720:${BR_height},hqdn3d=3:2:3,harddup -oac copy -ovc x264 -x264encopts threads=0:bitrate=2500:subq=6:partitions=all:8x8dct:me=umh:frameref=2:bframes=3:b_pyramid:weight_b:pass=2 -of rawvideo -o video.h264 1>encode_pass2.log 2>&-" >> encode.sh
+fi
+echo "echo -e '\E[35m'\"\033[1m####\c\033[0m \"" >> encode.sh
+
+echo "echo -e '\E[35m'\"\033[1m#rem_movie.vob\c\033[0m \"" >> encode.sh
+echo "rm -f movie.vob" >> encode.sh
+echo "echo -e '\E[35m'\"\033[1m####\c\033[0m \"" >> encode.sh
+
+echo "echo -e '\E[35m'\"\033[1m DONE #\033[0m\"" >> encode.sh
+
+echo "echo \" \"" >> encode.sh
+
+bash encode.sh
