@@ -1,0 +1,10 @@
+#!/bin/bash
+[ "$1" = "" ] && exit 1
+[ "$2" = "" ] && exit 1
+app=${1}
+dir=$(cd ${2}; pwd)
+qdbus org.kde.yakuake /yakuake/sessions org.kde.yakuake.addSession
+sess=`qdbus org.kde.yakuake /yakuake/sessions org.kde.yakuake.activeSessionId`
+qdbus org.kde.yakuake /yakuake/tabs org.kde.yakuake.setTabTitle $sess "${app}"
+qdbus org.kde.yakuake /yakuake/sessions org.kde.yakuake.runCommand "cd ${dir};clear"
+qdbus org.kde.yakuake /yakuake/MainWindow_1 org.kde.yakuake.toggleWindowState
