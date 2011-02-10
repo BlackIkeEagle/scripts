@@ -1,0 +1,46 @@
+#!/bin/bash
+
+## dependencies ####
+# - wget           #
+# - grep           #
+# - sed            #
+# - date           #
+# - fileutils      #
+# - mplayer        #
+####################
+
+[ -z $1 ] && echo "need one param" && exit
+
+VRT_PRG_BASEURL='http://www.deredactie.be/cm/vrtnieuws/mediatheek/programmas'
+VRT_PRG_DOWNURL='http://media.vrtnieuws.net'
+
+case $1 in
+	journaal)
+		echo "Scrape Vrt Journaal"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			wget -O tmpurldata ${url}
+			url_date=$(date -d `grep longdesc tmpurldata | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			url_hour=$(grep longdesc tmpurldata | sed 's/\(^.* \)\([0-9]\)\( .*$\)/\2/g')
+			file_out="${url_date}-${1}-${url_hour}"
+			file_flv=$(grep rtmpPath tmpurldata | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			[ -f ${file_out}.avi ] && continue;
+			wget -c -O ${file_out}.flv ${VRT_PRG_DOWNURL}/${file_flv}
+			file ${file_out}.flv | grep "Macromedia Flash Video"
+			if file ${file_out}.flv | grep -q "Macromedia Flash Video"; then
+				mencoder ${file_out}.flv \
+					-ovc lavc -lavcopts vcodec=mpeg4:vbitrate=1000:mbd=2:v4mv:autoaspect -vf pp=lb \
+					-oac mp3lame -lameopts fast:preset=standard \
+					-o ${file_out}.avi
+				#mencoder ${file_out}.flv \
+					#-ovc copy -oac copy \
+					#-o ${file_out}.avi
+			fi
+			rm -f ${file_out}.flv
+			rm -f tmpurldata
+		done
+		rm -f tmpurldata
+	;;
+	*)
+		echo "Scrape nothing"
+	;;
+esac
