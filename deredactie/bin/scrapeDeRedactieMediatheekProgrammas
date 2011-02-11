@@ -14,31 +14,148 @@
 VRT_PRG_BASEURL='http://www.deredactie.be/cm/vrtnieuws/mediatheek/programmas'
 VRT_PRG_DOWNURL='http://media.vrtnieuws.net'
 
+lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:mv0:trell:v4mv:cbp:last_pred=3:predia=2:dia=2:vmax_b_frames=2:vb_strategy=1:precmp=2:cmp=2:subcmp=2:preme=2:qns=2"
+targetdir='.'
+
+function downloadencode() {
+	[ ${#} -eq 2 ] || return 1
+	file_flv="${1}"
+	file_out="${2}"
+	[ -f ${targetdir}/${file_out}.avi ] && echo " >> Was Done Before ${file_out}" && return 2
+	echo " >> Download ${file_out}"
+	wget -q -c -O /tmp/${file_out}.flv ${VRT_PRG_DOWNURL}/${file_flv}
+	if file /tmp/${file_out}.flv | grep -q "Macromedia Flash Video"; then
+		echo " >> Encode ${file_out}"
+		mencoder /tmp/${file_out}.flv \
+			-ovc lavc -lavcopts ${lavcopts} \
+			-oac mp3lame -lameopts fast:preset=standard \
+			-o ${targetdir}/${file_out}.avi > /dev/null 2>&1
+	fi
+	echo " >> Done ${file_out}"
+	return 0
+}
+
 case $1 in
 	journaal)
 		echo "Scrape Vrt Journaal"
 		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
-			wget -O tmpurldata ${url}
-			url_date=$(date -d `grep longdesc tmpurldata | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
-			url_hour=$(grep longdesc tmpurldata | sed 's/\(^.* \)\([0-9]\)\( .*$\)/\2/g')
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			url_hour=$(grep longdesc ${tmp} | sed 's/\(^.* \)\([0-9]\)\( .*$\)/\2/g')
 			file_out="${url_date}-${1}-${url_hour}"
-			file_flv=$(grep rtmpPath tmpurldata | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
-			[ -f ${file_out}.avi ] && continue;
-			wget -c -O ${file_out}.flv ${VRT_PRG_DOWNURL}/${file_flv}
-			file ${file_out}.flv | grep "Macromedia Flash Video"
-			if file ${file_out}.flv | grep -q "Macromedia Flash Video"; then
-				mencoder ${file_out}.flv \
-					-ovc lavc -lavcopts vcodec=mpeg4:vbitrate=1000:mbd=2:v4mv:autoaspect -vf pp=lb \
-					-oac mp3lame -lameopts fast:preset=standard \
-					-o ${file_out}.avi
-				#mencoder ${file_out}.flv \
-					#-ovc copy -oac copy \
-					#-o ${file_out}.avi
-			fi
-			rm -f ${file_out}.flv
-			rm -f tmpurldata
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
 		done
 		rm -f tmpurldata
+	;;
+	terzake)
+		echo "Scrape Vrt Ter Zake"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	volt)
+		echo "Scrape Vrt Volt"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	koppen)
+		echo "Scrape Vrt Koppen / XL"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	reyerslaat)
+		echo "Scrape Vrt Reyers laat"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/Reyers%2Blaat?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	panorama)
+		echo "Scrape Vrt Panorama"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "<a.*${1}.*popupPlayer" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			url_title=$(echo `egrep "var title" ${tmp} | sed "s/\(^.*('\)\(Panorama: \)\(.*\)\(').*$\)/\3/g"` | tr '[:upper:]' '[:lower:]')
+			file_out="${url_date}-${1}-${url_title// /-}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	dezevendedag)
+		echo "Scrape Vrt De Zevende Dag"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	villapolitica)
+		echo "Scrape Vrt Villa Politica"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/Villa%2BPolitica?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*[iI]ntegraal" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			echo $?
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	devrijemarkt)
+		echo "Scrape Vrt Panorama"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "<a.*${1}.*popupPlayer" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			file_out="${url_date}-${1}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
 	;;
 	*)
 		echo "Scrape nothing"
