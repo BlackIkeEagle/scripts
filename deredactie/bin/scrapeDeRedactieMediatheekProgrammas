@@ -15,9 +15,9 @@ VRT_PRG_BASEURL='http://www.deredactie.be/cm/vrtnieuws/mediatheek/programmas'
 VRT_PRG_DOWNURL='http://media.vrtnieuws.net'
 
 #lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:mv0:trell:v4mv:cbp:last_pred=3:predia=2:dia=2:vmax_b_frames=2:vb_strategy=1:precmp=2:cmp=2:subcmp=2:preme=2:qns=2" # extreme quality
-lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:trell:v4mv:last_pred=2:dia=-1:vmax_b_frames=2:vb_strategy=1:cmp=3:subcmp=3:precmp=0:vqcomp=0.6:turbo" # high quality
+#lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:trell:v4mv:last_pred=2:dia=-1:vmax_b_frames=2:vb_strategy=1:cmp=3:subcmp=3:precmp=0:vqcomp=0.6:turbo" # high quality
 #lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:trell:v4mv:turbo" # fast
-#lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:turbo" # realtime
+lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:turbo" # realtime
 targetdir='.'
 
 function downloadencode() {
