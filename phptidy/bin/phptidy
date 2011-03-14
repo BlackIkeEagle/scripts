@@ -389,7 +389,7 @@ if ($command=="replace") {
  */
 function usage() {
 	echo "
-Usage: phptidy.php command [files|options]
+Usage: phptidy command [files|options]
 
 Commands:
   suffix   Write output into files with suffix .phptidy.php
