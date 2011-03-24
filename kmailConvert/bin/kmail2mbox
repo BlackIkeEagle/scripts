@@ -1,0 +1,23 @@
+#!/bin/bash
+startfolder=$1
+prefix=$2
+
+for folder in $(find ${startfolder} -mindepth 1 -maxdepth 1 -type d);
+do
+	folder=$(basename ${folder})
+	[[ ${folder} =~ \..* ]] && continue;
+	echo ${prefix}${folder};
+	if [ "${startfolder}" != "" ];
+	then
+		checkfolder="${startfolder}/.${folder}.directory"
+		mdirfolder="${startfolder}/${folder}"
+	else
+		checkfolder=".${folder}.directory"
+		mdirfolder="${folder}"
+	fi
+	./mdir2mbox "${mdirfolder}" "${prefix}${folder}"
+	if [ -d "${checkfolder}" ]
+	then
+		./kmail2mbox "${checkfolder}" "${prefix}${folder}-"
+	fi
+done;

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+email_folder=$1
+email_mbox_name=$2
+
+echo "=== $email_folder ==="
+find "$email_folder" -type f -exec ./mdirfile2mbox "{}" "$email_mbox_name.mbox" ";" 
+#find "$email_folder" -type f
+echo
