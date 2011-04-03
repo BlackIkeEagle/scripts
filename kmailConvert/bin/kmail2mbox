@@ -2,10 +2,12 @@
 startfolder=$1
 prefix=$2
 
+IFS=$'\n'
+
 for folder in $(find ${startfolder} -mindepth 1 -maxdepth 1 -type d);
 do
-	folder=$(basename ${folder})
-	[[ ${folder} =~ \..* ]] && continue;
+	folder=$(basename "${folder}")
+	[[ "${folder}" =~ \..* ]] && continue;
 	echo ${prefix}${folder};
 	if [ "${startfolder}" != "" ];
 	then
