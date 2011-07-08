@@ -1,5 +1,5 @@
 #!/bin/bash
-version="1.8.2"
+version="1.8.3"
 
 ##########################
 ##########################
@@ -27,56 +27,56 @@ BLK_BACKUPDIR=$BLK_BACKUPBASEDIR/$BLK_BACKUPNAME
 
 # if the logfile exists add a new one with incremented extension
 blkcreatelogfile() {
-  returnval=0
-  blk_test=0
-  blk_seq=0
-  while [ $blk_test -le 0 ]
-  do
-    BLK_LOGFILE="$BLK_LOGDIR/blkback.`hostname`.$BLK_BACK_DT.log.$blk_seq"
-    if [ -e $BLK_LOGFILE ]
-    then
-      blk_seq=`expr $blk_seq + 1`
-    else
-      blk_test=1
-    fi
-  done
+	returnval=0
+	blk_test=0
+	blk_seq=0
+	while [ $blk_test -le 0 ]
+	do
+		BLK_LOGFILE="$BLK_LOGDIR/blkback.`hostname`.$BLK_BACK_DT.log.$blk_seq"
+		if [ -e $BLK_LOGFILE ]
+		then
+			blk_seq=`expr $blk_seq + 1`
+		else
+			blk_test=1
+		fi
+	done
 
-  # write header of the logfile
-  echo "+-----------------------------+" >> $BLK_LOGFILE
-  if [ $? -ne 0 ]
-  then
-    returnval=$BLK_LOGFILE_FAIL
-  fi
-  echo "| BLACK BACKUP LOG `date +%Y-%m-%d` |" >> $BLK_LOGFILE
-  echo "+-----------------------------+" >> $BLK_LOGFILE
-  echo "+-- version: $version --+" >> $BLK_LOGFILE
-  echo " " >> $BLK_LOGFILE
-  echo "[`date +%T`] : +++ BACKUP STARTED +++" >> $BLK_LOGFILE
-  return $returnval
+	# write header of the logfile
+	echo "+-----------------------------+" >> $BLK_LOGFILE
+	if [ $? -ne 0 ]
+	then
+		returnval=$BLK_LOGFILE_FAIL
+	fi
+	echo "| BLACK BACKUP LOG `date +%Y-%m-%d` |" >> $BLK_LOGFILE
+	echo "+-----------------------------+" >> $BLK_LOGFILE
+	echo "+-- version: $version --+" >> $BLK_LOGFILE
+	echo " " >> $BLK_LOGFILE
+	echo "[`date +%T`] : +++ BACKUP STARTED +++" >> $BLK_LOGFILE
+	return $returnval
 }
 
 # function for logging
 blklog() {
-  if [ -z "$1" ]
-  then
-    echo "[`date +%T`] : LOGGING ERROR, No Argument Given" >> $BLK_LOGFILE
-  else
-    echo "[`date +%T`] : $1" >> $BLK_LOGFILE
-  fi
+	if [ -z "$1" ]
+	then
+		echo "[`date +%T`] : LOGGING ERROR, No Argument Given" >> $BLK_LOGFILE
+	else
+		echo "[`date +%T`] : $1" >> $BLK_LOGFILE
+	fi
 }
 
 # check if logdir exists, if not create the dir
 blkcreatelogdir() {
-  returnval=0
-  if [ ! -d $BLK_LOGDIR ]
-  then
-    mkdir -p $BLK_LOGDIR
-    if [ $? -ne 0 ]
-    then
-      returnval=$BLK_LOGDIRCREATE_FAIL 
-    fi
-  fi
-  return $returnval
+	returnval=0
+	if [ ! -d $BLK_LOGDIR ]
+	then
+		mkdir -p $BLK_LOGDIR
+		if [ $? -ne 0 ]
+		then
+			returnval=$BLK_LOGDIRCREATE_FAIL 
+		fi
+	fi
+	return $returnval
 }
 
 #######################
@@ -85,107 +85,107 @@ blkcreatelogdir() {
 
 # create the backup basedir if it doesnt exist
 blkcreatebasedir() {
-  returnval=0
-  if [ ! -d $BLK_BACKUPBASEDIR ]
-  then
-    blklog "| CREATE            | $BLK_BACKUPBASEDIR"
-    mkdir -p $BLK_BACKUPBASEDIR
-    if [ $? -eq 0 ]
-    then
-      blklog "| SUCCESS           | Created backup basedir $BLK_BACKUPBASEDIR"
-    else
-      blklog "| FAILED            | $BLK_BACKUPBASEDIR could not be created"
-      returnval=$BLK_BACKUPDIR_CREATE_FAIL
-    fi
-  fi
-  return $returnval
+	returnval=0
+	if [ ! -d $BLK_BACKUPBASEDIR ]
+	then
+		blklog "| CREATE            | $BLK_BACKUPBASEDIR"
+		mkdir -p $BLK_BACKUPBASEDIR
+		if [ $? -eq 0 ]
+		then
+			blklog "| SUCCESS           | Created backup basedir $BLK_BACKUPBASEDIR"
+		else
+			blklog "| FAILED            | $BLK_BACKUPBASEDIR could not be created"
+			returnval=$BLK_BACKUPDIR_CREATE_FAIL
+		fi
+	fi
+	return $returnval
 }
 
 # network backup or not, if so mount network folder
 blkmountbkdir() {
-  returnval=0
-  case $BLK_NETW_TYPE in
-    NFS )
-    blklog "| NETW NFS MOUNT    | Mount $BLK_NFS_HOST:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
-    mount -t nfs $BLK_NFS_HOST:$BLK_NFS_DIR $BLK_BACKUPBASEDIR
-    blktempcheck=$?
-    if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
-    then
-      blklog "| NETW NFS MNT OK   | Successfully mounted $BLK_BACKUPBASEDIR"
-    else
-      blklog "| NETW NFS MNT NOK  | Failed to mount $BLK_NFS_HOST:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
-      returnval=$BLK_NETW_NFS_FAIL
-    fi
-    ;;
-    SMB )
-    blklog "| NETW SMB MOUNT    | Mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
-    mount -t smbfs -o username=$BLK_SMB_USR,password=$BLK_SMB_PASS //$BLK_SMB_HOST/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
-    blktempcheck=$?
-    if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
-    then
-      blklog "| NETW SMB MNT OK   | Successfully mounted $BLK_BACKUPBASEDIR"
-    else
-      blklog "| NETW SMB MNT NOK  | Failed to mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
-      returnval=$BLK_NETW_SMB_FAIL
-    fi
-    ;;
-    NONE )
-    blklog "| NETW NONE         | Local backup to $BLK_BACKUPBASEDIR"
-    ;;
-  esac
-  return $returnval
+	returnval=0
+	case $BLK_NETW_TYPE in
+		NFS )
+			blklog "| NETW NFS MOUNT    | Mount $BLK_NFS_HOST:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
+			mount -t nfs $BLK_NFS_HOST:$BLK_NFS_DIR $BLK_BACKUPBASEDIR
+			blktempcheck=$?
+			if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
+			then
+				blklog "| NETW NFS MNT OK   | Successfully mounted $BLK_BACKUPBASEDIR"
+			else
+				blklog "| NETW NFS MNT NOK  | Failed to mount $BLK_NFS_HOST:$BLK_NFS_DIR to $BLK_BACKUPBASEDIR"
+				returnval=$BLK_NETW_NFS_FAIL
+			fi
+			;;
+		SMB )
+			blklog "| NETW SMB MOUNT    | Mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
+			mount -t smbfs -o username=$BLK_SMB_USR,password=$BLK_SMB_PASS //$BLK_SMB_HOST/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
+			blktempcheck=$?
+			if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
+			then
+				blklog "| NETW SMB MNT OK   | Successfully mounted $BLK_BACKUPBASEDIR"
+			else
+				blklog "| NETW SMB MNT NOK  | Failed to mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
+				returnval=$BLK_NETW_SMB_FAIL
+			fi
+			;;
+		NONE )
+			blklog "| NETW NONE         | Local backup to $BLK_BACKUPBASEDIR"
+			;;
+	esac
+	return $returnval
 }
 
 # Unmount network folders if nessecary
 blkunmountbkdir() {
-  if [ "$BLK_NETW_TYPE" == "NFS" ] || [ "$BLK_NETW_TYPE" == "SMB" ]
-  then
-    blklog "| UNMOUNT           | $BLK_BACKUPBASEDIR"
-    umount $BLK_BACKUPBASEDIR
-    if [ $? -eq 0 ]
-    then
-      blklog "| SUCCESS           | Successfully unmounted $BLK_BACKUPBASEDIR"
-    else
-      blklog "| FAILED            | Failed to unmount $BLK_BACKUPBASEDIR"
-    fi
-  fi
+	if [ "$BLK_NETW_TYPE" == "NFS" ] || [ "$BLK_NETW_TYPE" == "SMB" ]
+	then
+		blklog "| UNMOUNT           | $BLK_BACKUPBASEDIR"
+		umount $BLK_BACKUPBASEDIR
+		if [ $? -eq 0 ]
+		then
+			blklog "| SUCCESS           | Successfully unmounted $BLK_BACKUPBASEDIR"
+		else
+			blklog "| FAILED            | Failed to unmount $BLK_BACKUPBASEDIR"
+		fi
+	fi
 }
 
 # create specific backup directory for this machine
 blkcreatehostdir(){
-  returnval=0
-  if [ ! -d $BLK_BACKUPDIR ]
-  then
-    blklog "| CREATE            | $BLK_BACKUPDIR"
-    mkdir -p $BLK_BACKUPDIR
-    if [ $? -eq 0 ]
-    then
-      blklog "| SUCCESS           | Created backupdir $BLK_BACKUPDIR"
-    else
-      blklog "| FAILED            | $BLK_BACKUPDIR could not be created"
-      returnval=$BLK_BACKUPDIR_HOST_CREATE_FAIL
-    fi
-  fi
-  return $returnval
+	returnval=0
+	if [ ! -d $BLK_BACKUPDIR ]
+	then
+		blklog "| CREATE            | $BLK_BACKUPDIR"
+		mkdir -p $BLK_BACKUPDIR
+		if [ $? -eq 0 ]
+		then
+			blklog "| SUCCESS           | Created backupdir $BLK_BACKUPDIR"
+		else
+			blklog "| FAILED            | $BLK_BACKUPDIR could not be created"
+			returnval=$BLK_BACKUPDIR_HOST_CREATE_FAIL
+		fi
+	fi
+	return $returnval
 }
 
 # check if specific backup directory is writable
 blkhostdirwritable() {
-  returnval=0
-  dir=`pwd`
-  cd $BLK_BACKUPDIR
-  touch bla.txt
-  errval=$?
-  if [ $errval -eq 0 ]
-  then
-    blklog "| HOSTDIR WRITABLE  | $BLK_BACKUPDIR"
-    rm bla.txt
-  else
-    blklog "| HOSTDIR UNWRITABLE| $BLK_BACKUPDIR"
-    returnval=$BLK_BACKUPDIR_HOST_WRITE_FAIL
-  fi
-  cd $dir
-  return $returnval
+	returnval=0
+	dir=`pwd`
+	cd $BLK_BACKUPDIR
+	touch bla.txt
+	errval=$?
+	if [ $errval -eq 0 ]
+	then
+		blklog "| HOSTDIR WRITABLE  | $BLK_BACKUPDIR"
+		rm bla.txt
+	else
+		blklog "| HOSTDIR UNWRITABLE| $BLK_BACKUPDIR"
+		returnval=$BLK_BACKUPDIR_HOST_WRITE_FAIL
+	fi
+	cd $dir
+	return $returnval
 }
 
 #############################
@@ -194,27 +194,27 @@ blkhostdirwritable() {
 
 # Stop services specified in special actions
 blkstopservices() {
-  if [ "$BLK_ACTIONS" != "" ] && [ "$BLK_INITDIR" != "" ]
-  then
-    for service in $BLK_ACTIONS
-    do
-      $BLK_INITDIR/$service stop 
-      blklog "| STOP              | Stop $service"
-    done
-  fi
+	if [ "$BLK_ACTIONS" != "" ] && [ "$BLK_INITDIR" != "" ]
+	then
+		for service in $BLK_ACTIONS
+		do
+			$BLK_INITDIR/$service stop 
+			blklog "| STOP              | Stop $service"
+		done
+	fi
 }
 
 # Start services specified in special actions
 blkstartservices() {
-  cd /
-  if [ "$BLK_ACTIONS" != "" ] && [ "$BLK_INITDIR" != "" ]
-  then
-    for service in $BLK_ACTIONS
-    do
-      $BLK_INITDIR/$service start 
-      blklog "| START             | Start $service"
-    done
-  fi
+	cd /
+	if [ "$BLK_ACTIONS" != "" ] && [ "$BLK_INITDIR" != "" ]
+	then
+		for service in $BLK_ACTIONS
+		do
+			$BLK_INITDIR/$service start 
+			blklog "| START             | Start $service"
+		done
+	fi
 }
 
 ##################################
@@ -223,64 +223,64 @@ blkstartservices() {
 
 # function to backup a new file
 blkpack() {
-  curdir=`pwd`
-  if [ -z "$1" ] && [ -z "$2" ]
-  then
-    blklog "| FUNCT ERROR       | blkpack didn't get enough arguments"
-  else
-    blkcopybasedir="$1"
-    blkcopyfile="$2"
-    blklog "| PACK START        | $blkcopyfile.tar.gz"
-    blklog "| PACK TARGZ        | $blkcopyfile starting to compress"
-    tar --exclude-from=/etc/blkbackup/excluded.txt -cpzf $BLK_BACKUPDIR/$blkcopyfile.tar.gz $blkcopybasedir
-    if [ $? -eq 0 ]
-    then
-      blklog "| PACK TARGZ OK     | $blkcopyfile compress ok"
-      blkchsum $blkcopyfile &
-    fi
-  fi
-  cd $curdir
+	curdir=`pwd`
+	if [ -z "$1" ] && [ -z "$2" ]
+	then
+		blklog "| FUNCT ERROR       | blkpack didn't get enough arguments"
+	else
+		blkcopybasedir="$1"
+		blkcopyfile="$2"
+		blklog "| PACK START        | $blkcopyfile.tar.gz"
+		blklog "| PACK TARGZ        | $blkcopyfile starting to compress"
+		tar --exclude-from=/etc/blkbackup/excluded.txt -cpzf $BLK_BACKUPDIR/$blkcopyfile.tar.gz $blkcopybasedir
+		if [ $? -eq 0 ]
+		then
+			blklog "| PACK TARGZ OK     | $blkcopyfile compress ok"
+			blkchsum $blkcopyfile &
+		fi
+	fi
+	cd $curdir
 }
 
 blkchsum() {
-  blkcopyfile=$1
-  blklog "| PACK CREATE SUM   | $blkcopyfile create checksum"
-  cd $BLK_BACKUPDIR
-  md5sum $blkcopyfile.tar.gz > $blkcopyfile.tar.gz.md5
-  if [ $? -eq 0 ]
-  then
-    blklog "| PACK CREATESUM OK | $blkcopyfile checksum created ok"
-  else
-    blklog "| PACK CRSUM FAIL   | $blkcopyfile checksum failed to create"
-    rm -f $blkcopyfile.tar.gz.md5
-  fi
+	blkcopyfile=$1
+	blklog "| PACK CREATE SUM   | $blkcopyfile create checksum"
+	cd $BLK_BACKUPDIR
+	md5sum $blkcopyfile.tar.gz > $blkcopyfile.tar.gz.md5
+	if [ $? -eq 0 ]
+	then
+		blklog "| PACK CREATESUM OK | $blkcopyfile checksum created ok"
+	else
+		blklog "| PACK CRSUM FAIL   | $blkcopyfile checksum failed to create"
+		rm -f $blkcopyfile.tar.gz.md5
+	fi
 }
 
 # function to delete an failed copy
 blkremove() {
-  if [ -z "$1" ]
-  then
-    blklog "| FUNCT ERROR       | blkremove didn't get enough arguments"
-  else
-    blkremovefile="$1"
-    blklog "| REMOVE START      | start removing file"
-    rm -f $BLK_BACKUPDIR/$blkremovefile.tar.gz*
-    blklog "| REMOVE DONE       | files $blkremovefile.tar.gz* removed"
-  fi
+	if [ -z "$1" ]
+	then
+		blklog "| FUNCT ERROR       | blkremove didn't get enough arguments"
+	else
+		blkremovefile="$1"
+		blklog "| REMOVE START      | start removing file"
+		rm -f $BLK_BACKUPDIR/$blkremovefile.tar.gz*
+		blklog "| REMOVE DONE       | files $blkremovefile.tar.gz* removed"
+	fi
 }
 
 # function to specify the whole backup flow
 blkbackup() {
-  if [ -z "$1" ] && [ -z "$2" ] && [ -z "$3" ]
-  then
-    blklog "| FUNCTION ERROR    | blkbackup didn't get enough arguments"
-  else
-    kind="$1"
-    dir="$2"
-    base="$3"
-    blklog "| BACKUP NEW        | Creating backup of $dir"
-    blkpack $dir $base
-  fi
+	if [ -z "$1" ] && [ -z "$2" ] && [ -z "$3" ]
+	then
+		blklog "| FUNCTION ERROR    | blkbackup didn't get enough arguments"
+	else
+		kind="$1"
+		dir="$2"
+		base="$3"
+		blklog "| BACKUP NEW        | Creating backup of $dir"
+		blkpack $dir $base
+	fi
 }
 
 ##############
@@ -290,162 +290,167 @@ blkbackup() {
 ##############
 
 blkmain() {
-  errval=0
-  blkcontinue=1
-  BLK_EXIT_STATUS=0
-  echo "+-----------------------------------------------------------------------------+"
-  echo "| BLACK backup script                            (c) 2006 - 2007 Ike Devolder |"
-  echo "| This script can backup all the homedirectories, predefined data directories |"
-  echo "| and also backups the settings (mostly located in /etc)                      |"
-  echo "| for more information mailto: devolderike@yahoo.com                          |"
-  echo "+-----------------------------------------------------------------------------+"
-  echo "+-- version $version --+"
+	errval=0
+	blkcontinue=1
+	BLK_EXIT_STATUS=0
+	echo "+-----------------------------------------------------------------------------+"
+	echo "| BLACK backup script                            (c) 2006 - 2011 Ike Devolder |"
+	echo "| This script can backup all the homedirectories, predefined data directories |"
+	echo "| and also backups the settings (mostly located in /etc)                      |"
+	echo "| for more information mailto: <ike DOT devolder AT gmail DOT com>            |"
+	echo "+-----------------------------------------------------------------------------+"
+	echo "+-- version $version --+"
 
-  blkstarttime=`date +%s`
+	blkstarttime=`date +%s`
 
-  if [ $blkcontinue -eq 1 ]
-  then
-    blkcreatelogdir
-    errval=$?
-    if [ $errval -eq 0 ]
-    then
-      blkcontinue=1
-    else
-      blkcontinue=0
-      BLK_EXIT_STATUS=$errval
-    fi
-  fi
-  if [ $blkcontinue -eq 1 ]
-  then
-    blkcreatelogfile
-    errval=$?
-    if [ $errval -eq 0 ]
-    then
-      blkcontinue=1
-    else
-      blkcontinue=0
-      BLK_EXIT_STATUS=$errval
-    fi
-  fi
-  if [ $blkcontinue -eq 1 ]
-  then
-    blkcreatebasedir
-    errval=$?
-    if [ $errval -eq 0 ]
-    then
-      blkcontinue=1
-    else
-      blkcontinue=0
-      BLK_EXIT_STATUS=$errval
-    fi
-  fi
-  if [ $blkcontinue -eq 1 ]
-  then
-    blkmountbkdir
-    errval=$?
-    if [ $errval -eq 0 ]
-    then
-      blkcontinue=1
-    else
-      blkcontinue=0
-      BLK_EXIT_STATUS=$errval
-    fi
-  fi
+	if [ $blkcontinue -eq 1 ]
+	then
+		blkcreatelogdir
+		errval=$?
+		if [ $errval -eq 0 ]
+		then
+			blkcontinue=1
+		else
+			blkcontinue=0
+			BLK_EXIT_STATUS=$errval
+		fi
+	fi
+	if [ $blkcontinue -eq 1 ]
+	then
+		blkcreatelogfile
+		errval=$?
+		if [ $errval -eq 0 ]
+		then
+			blkcontinue=1
+		else
+			blkcontinue=0
+			BLK_EXIT_STATUS=$errval
+		fi
+	fi
+	if [ $blkcontinue -eq 1 ]
+	then
+		blkcreatebasedir
+		errval=$?
+		if [ $errval -eq 0 ]
+		then
+			blkcontinue=1
+		else
+			blkcontinue=0
+			BLK_EXIT_STATUS=$errval
+		fi
+	fi
+	if [ $blkcontinue -eq 1 ]
+	then
+		blkmountbkdir
+		errval=$?
+		if [ $errval -eq 0 ]
+		then
+			blkcontinue=1
+		else
+			blkcontinue=0
+			BLK_EXIT_STATUS=$errval
+		fi
+	fi
 
-  if [ $blkcontinue -eq 1 ]
-  then
-    blkcontinue=1
-    if [ $blkcontinue -eq 1 ]
-    then
-      blkcreatehostdir
-      errval=$?
-      if [ $errval -eq 0 ]
-      then
-        blkcontinue=1
-      else
-        blkcontinue=0
-        BLK_EXIT_STATUS=$errval
-      fi
-    fi
-    if [ $blkcontinue -eq 1 ]
-    then
-      blkhostdirwritable
-      errval=$?
-      if [ $errval -eq 0 ]
-      then
-        blkcontinue=1
-      else
-        blkcontinue=0
-        BLK_EXIT_STATUS=$errval
-      fi
-    fi
+	if [ $blkcontinue -eq 1 ]
+	then
+		blkcontinue=1
+		if [ $blkcontinue -eq 1 ]
+		then
+			blkcreatehostdir
+			errval=$?
+			if [ $errval -eq 0 ]
+			then
+				blkcontinue=1
+			else
+				blkcontinue=0
+				BLK_EXIT_STATUS=$errval
+			fi
+		fi
+		if [ $blkcontinue -eq 1 ]
+		then
+			blkhostdirwritable
+			errval=$?
+			if [ $errval -eq 0 ]
+			then
+				blkcontinue=1
+			else
+				blkcontinue=0
+				BLK_EXIT_STATUS=$errval
+			fi
+		fi
 
-    if [ $blkcontinue -eq 1 ]
-    then
-      rm -f $BLK_BACKUPDIR/*
-      blkstopservices
-      ###########################
-      # Backup home directory's #
-      ###########################
+		if [ $blkcontinue -eq 1 ]
+		then
+			rm -f $BLK_BACKUPDIR/*
+			blkstopservices
+			###########################
+			# Backup home directory's #
+			###########################
 
-      if [ "$BLK_HOMEDIR" != "" ]
-      then
-        if [ "$BLK_HOME_SKIP" == "" ]
-        then
-          homelist=`ls $BLK_HOMEDIR`
-        else
-          homelist=`ls $BLK_HOME_SKIP $BLK_HOMEDIR`
-        fi
-        if [ "$homelist" != "" ]
-        then
-          cd $BLK_HOMEDIR
-          for homed in $homelist
-          do
-            basefilename="home.$homed"
-            blklog "+++ DIR: $homed +++"
-            blkbackup "home" "$homed" "$basefilename.$BLK_BACK_DT"
-          done
-        fi
-      fi
+			if [ "$BLK_HOMEDIR" != "" ]
+			then
+				if [ "$BLK_HOME_SKIP" == "" ]
+				then
+					homelist=`ls $BLK_HOMEDIR`
+				else
+					homelist=`ls $BLK_HOME_SKIP $BLK_HOMEDIR`
+				fi
+				if [ "$homelist" != "" ]
+				then
+					cd $BLK_HOMEDIR
+					for homed in $homelist
+					do
+						basefilename="home.$homed"
+						blklog "+++ DIR: $homed +++"
+						if [ "$BLK_HOME_DIRS" != "" ]
+						then
+							blkbackup "home" "$homed/$BLK_HOME_DIRS" "$basefilename.$BLK_BACK_DT"
+						else
+							blkbackup "home" "$homed" "$basefilename.$BLK_BACK_DT"
+						fi
+					done
+				fi
+			fi
 
-      ########################################
-      # Backup data directories if nessecary #
-      ########################################
+			########################################
+			# Backup data directories if nessecary #
+			########################################
 
-      if [ "$BLK_DATADIRS" != "" ]
-      then
-        for datadir in $BLK_DATADIRS
-        do
-          basefilename="data.`echo ${datadir//\//_}`"
-          blklog "+++ DIR: $datadir +++"
-          blkbackup "data" "$datadir" "$basefilename.$BLK_BACK_DT"
-        done
-      fi
+			if [ "$BLK_DATADIRS" != "" ]
+			then
+				for datadir in $BLK_DATADIRS
+				do
+					basefilename="data.`echo ${datadir//\//_}`"
+					blklog "+++ DIR: $datadir +++"
+					blkbackup "data" "$datadir" "$basefilename.$BLK_BACK_DT"
+				done
+			fi
 
-      ###################
-      # Backup settings #
-      ###################
+			###################
+			# Backup settings #
+			###################
 
-      if [ "$BLK_SETTINGS" != "" ]
-      then
-        basefilename="sett.`echo ${BLK_SETTINGS//\//_}`"
-        blklog "+++ DIR: $BLK_SETTINGS +++"
-        blkbackup "sett" "$BLK_SETTINGS" "$basefilename.$BLK_BACK_DT"
-      fi
+			if [ "$BLK_SETTINGS" != "" ]
+			then
+				basefilename="sett.`echo ${BLK_SETTINGS//\//_}`"
+				blklog "+++ DIR: $BLK_SETTINGS +++"
+				blkbackup "sett" "$BLK_SETTINGS" "$basefilename.$BLK_BACK_DT"
+			fi
 
-      blkstartservices
-    fi
+			blkstartservices
+		fi
 
-    wait
-    blkunmountbkdir
+		wait
+		blkunmountbkdir
 
-    blkendtime=`date +%s`
-    blktottime=`expr $blkendtime - $blkstarttime`
-    blklog "+++ Total Time: $blktottime +++"
-    blklog "+++ ALL DONE +++"
-  fi
+		blkendtime=`date +%s`
+		blktottime=`expr $blkendtime - $blkstarttime`
+		blklog "+++ Total Time: $blktottime +++"
+		blklog "+++ ALL DONE +++"
+	fi
 
-  exit $BLK_EXIT_STATUS
+	exit $BLK_EXIT_STATUS
 }
 
 blkmain

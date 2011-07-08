@@ -12,6 +12,10 @@
 ###############################################################################
 # Version History                                                             #
 #                                                                             #
+# 1.8.3                                                                       #
+# -----                                                                       #
+# add directory list for homes so you can backup specific dirs                #
+#                                                                             #
 # 1.8.2                                                                       #
 # -----                                                                       #
 # changed from week-day format to year-month-day format                       #
