@@ -32,7 +32,7 @@ blkcreatelogfile() {
 	blk_seq=0
 	while [ $blk_test -le 0 ]
 	do
-		BLK_LOGFILE="$BLK_LOGDIR/blkback.`hostname`.$BLK_BACK_DT.log.$blk_seq"
+		BLK_LOGFILE="$BLK_LOGDIR/blkback.$BLK_BACKUPNAME.$BLK_BACK_DT.log.$blk_seq"
 		if [ -e $BLK_LOGFILE ]
 		then
 			blk_seq=`expr $blk_seq + 1`
@@ -119,7 +119,12 @@ blkmountbkdir() {
 			;;
 		SMB )
 			blklog "| NETW SMB MOUNT    | Mount //$BLK_SMB_HOST/$BLK_SMB_DIR to $BLK_BACKUPBASEDIR"
-			mount -t smbfs -o username=$BLK_SMB_USR,password=$BLK_SMB_PASS //$BLK_SMB_HOST/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
+			if [ "$BLK_SMB_USR" != "" ]
+			then
+				mount -t cifs -o username=$BLK_SMB_USR,password=$BLK_SMB_PASS //$BLK_SMB_HOST/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
+			else
+				mount -t cifs //$BLK_SMB_HOST/$BLK_SMB_DIR $BLK_BACKUPBASEDIR
+			fi
 			blktempcheck=$?
 			if [ $blktempcheck -eq 0 ] || [ $blktempcheck -eq 32 ]
 			then
@@ -383,7 +388,6 @@ blkmain() {
 		if [ $blkcontinue -eq 1 ]
 		then
 			rm -f $BLK_BACKUPDIR/*
-			blkstopservices
 			###########################
 			# Backup home directory's #
 			###########################
@@ -419,12 +423,14 @@ blkmain() {
 
 			if [ "$BLK_DATADIRS" != "" ]
 			then
+				blkstopservices
 				for datadir in $BLK_DATADIRS
 				do
 					basefilename="data.`echo ${datadir//\//_}`"
 					blklog "+++ DIR: $datadir +++"
 					blkbackup "data" "$datadir" "$basefilename.$BLK_BACK_DT"
 				done
+				blkstartservices
 			fi
 
 			###################
@@ -438,7 +444,6 @@ blkmain() {
 				blkbackup "sett" "$BLK_SETTINGS" "$basefilename.$BLK_BACK_DT"
 			fi
 
-			blkstartservices
 		fi
 
 		wait
