@@ -1,5 +1,5 @@
 +-----------------------------------------------------------------------------+
-| BLACK backup script                            (c) 2006 - 2007 Ike Devolder |
+| BLACK backup script                            (c) 2006 - 2011 Ike Devolder |
 | This script can backup all the homedirectories, predefined data directories |
 | and also backups the settings (mostly located in /etc)                      |
 | for more information mailto: devolderike@yahoo.com                          |
@@ -11,6 +11,12 @@
 
 ###############################################################################
 # Version History                                                             #
+#                                                                             #
+# 1.8.4                                                                       #
+# -----                                                                       #
+# finally implemented keep stuff, keep 3 days by default                      #
+# added service folders, so the services have to be stopped for a very        #
+# limited period of time                                                      #
 #                                                                             #
 # 1.8.3                                                                       #
 # -----                                                                       #
