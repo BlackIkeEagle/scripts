@@ -148,7 +148,7 @@ case $1 in
 		done
 	;;
 	devrijemarkt)
-		echo "Scrape Vrt Panorama"
+		echo "Scrape Vrt De Vrije Markt"
 		for url in $(wget -O - "${VRT_PRG_BASEURL}/${1}?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "<a.*${1}.*popupPlayer" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
 			tmp=$(mktemp)
 			wget -q -O ${tmp} ${url}
