@@ -1,5 +1,5 @@
 #!/bin/bash
-version="1.8.4"
+version="1.8.6"
 
 ##########################
 ##########################
@@ -41,17 +41,6 @@ blkcreatelogfile() {
 		fi
 	done
 
-	# write header of the logfile
-	echo "+-----------------------------+" >> $BLK_LOGFILE
-	if [ $? -ne 0 ]
-	then
-		returnval=$BLK_LOGFILE_FAIL
-	fi
-	echo "| BLACK BACKUP LOG `date +%Y-%m-%d` |" >> $BLK_LOGFILE
-	echo "+-----------------------------+" >> $BLK_LOGFILE
-	echo "+-- version: $version --+" >> $BLK_LOGFILE
-	echo " " >> $BLK_LOGFILE
-	echo "[`date +%T`] : +++ BACKUP STARTED +++" >> $BLK_LOGFILE
 	return $returnval
 }
 
@@ -59,9 +48,9 @@ blkcreatelogfile() {
 blklog() {
 	if [ -z "$1" ]
 	then
-		echo "[`date +%T`] : LOGGING ERROR, No Argument Given" >> $BLK_LOGFILE
+		echo "[`date +%T`] : LOGGING ERROR, No Argument Given"
 	else
-		echo "[`date +%T`] : $1" >> $BLK_LOGFILE
+		echo "[`date +%T`] : $1"
 	fi
 }
 
@@ -73,7 +62,7 @@ blkcreatelogdir() {
 		mkdir -p $BLK_LOGDIR
 		if [ $? -ne 0 ]
 		then
-			returnval=$BLK_LOGDIRCREATE_FAIL 
+			returnval=$BLK_LOGDIRCREATE_FAIL
 		fi
 	fi
 	return $returnval
@@ -203,8 +192,13 @@ blkstopservices() {
 	then
 		for service in $BLK_ACTIONS
 		do
-			$BLK_INITDIR/$service stop 
 			blklog "| STOP              | Stop $service"
+			$BLK_INITDIR/$service stop > /dev/null 2>&1
+			if [ $? -eq 0 ]; then
+				blklog "| STOP SUCCESS      | Stop $service success"
+			else
+				blklog "| STOP FAILED       | Stop $service failed"
+			fi
 		done
 	fi
 }
@@ -216,8 +210,13 @@ blkstartservices() {
 	then
 		for service in $BLK_ACTIONS
 		do
-			$BLK_INITDIR/$service start 
 			blklog "| START             | Start $service"
+			$BLK_INITDIR/$service start > /dev/null 2>&1
+			if [ $? -eq 0 ]; then
+				blklog "| START SUCCESS     | Start $service success"
+			else
+				blklog "| START FAILED      | Start $service failed"
+			fi
 		done
 	fi
 }
@@ -228,51 +227,62 @@ blkstartservices() {
 
 # function to backup a new file
 blkpack() {
-	curdir=`pwd`
 	if [ -z "$1" ] && [ -z "$2" ]
 	then
 		blklog "| FUNCT ERROR       | blkpack didn't get enough arguments"
 	else
-		blkcopybasedir="$1"
-		blkcopyfile="$2"
-		blklog "| PACK START        | $blkcopyfile.tar.gz"
-		blklog "| PACK TARGZ        | $blkcopyfile starting to compress"
-		tar --exclude-from=/etc/blkbackup/excluded.txt -cpzf $BLK_BACKUPDIR/$blkcopyfile.tar.gz $blkcopybasedir
+		(
+			blkcopybasedir="$1"
+			blkcopyfile="$2"
+			blklog "| PACK START        | $blkcopyfile.tar.gz"
+			blkclean $blkcopyfile
+			blklog "| PACK TARGZ        | $blkcopyfile starting to compress"
+			tar --exclude-from=/etc/blkbackup/excluded.txt -cpzf $BLK_BACKUPDIR/$blkcopyfile.tar.gz $blkcopybasedir
+			if [ $? -eq 0 ]
+			then
+				blklog "| PACK TARGZ OK     | $blkcopyfile compress ok"
+				blkchsum $blkcopyfile
+			else
+				blklog "| PACK TARGZ FAIL   | $blkcopyfile compress failed"
+				blkremove $blkcopyfile
+			fi
+		)
+	fi
+}
+
+# create backup checksum
+blkchsum() {
+	blkchsumfile=$1
+	(
+		blklog "| PACK CREATE SUM   | $blkchsumfile create checksum"
+		cd $BLK_BACKUPDIR
+		sha256sum $blkchsumfile.tar.gz > $blkchsumfile.tar.gz.sha256
 		if [ $? -eq 0 ]
 		then
-			blklog "| PACK TARGZ OK     | $blkcopyfile compress ok"
-			blkchsum $blkcopyfile &
-			blkclean $blkcopyfile &
+			blklog "| PACK CREATESUM OK | $blkchsumfile checksum created ok"
+		else
+			blklog "| PACK CRSUM FAIL   | $blkchsumfile checksum failed to create"
+			rm -f $blkchsumfile.tar.gz.sha256
 		fi
-	fi
-	cd $curdir
+	)
 }
 
-blkchsum() {
-	blkcopyfile=$1
-	blklog "| PACK CREATE SUM   | $blkcopyfile create checksum"
-	cd $BLK_BACKUPDIR
-	sha256sum $blkcopyfile.tar.gz > $blkcopyfile.tar.gz.sha256
-	if [ $? -eq 0 ]
-	then
-		blklog "| PACK CREATESUM OK | $blkcopyfile checksum created ok"
-	else
-		blklog "| PACK CRSUM FAIL   | $blkcopyfile checksum failed to create"
-		rm -f $blkcopyfile.tar.gz.sha256
-	fi
-}
-
+# cleanup old backups
 blkclean() {
-	blkcopyfile=$1
-	blklog "| PACK CLEAN OLD    | $blkcopyfile cleanup old backups"
-	cd $BLK_BACKUPDIR
-	find -name "$blkcopyfile*" -mtime +$BLK_KEEP -delete
-	if [ $? -eq 0 ]
-	then
-		blklog "| PACK CLEAN OLD OK | $blkcopyfile cleanup of old files success"
-	else
-		blklog "| PACK CLN OLD FAIL | $blkcopyfile cleanup of old files failed"
-	fi
+	blkcleanfile=$(echo $1 | sed -e 's/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}//')
+	(
+		cd $BLK_BACKUPDIR
+		if [ `find -name "$blkcleanfile*" | wc -l` -ne 0 ]; then
+			blklog "| PACK CLEAN OLD    | $blkcleanfile cleanup old backups"
+			find -name "$blkcleanfile*" -mtime +$BLK_KEEP -delete
+			if [ $? -eq 0 ]
+			then
+				blklog "| PACK CLEAN OLD OK | $blkcleanfile cleanup of old files success"
+			else
+				blklog "| PACK CLN OLD FAIL | $blkcleanfile cleanup of old files failed"
+			fi
+		fi
+	)
 }
 
 # function to delete an failed copy
@@ -281,18 +291,20 @@ blkremove() {
 	then
 		blklog "| FUNCT ERROR       | blkremove didn't get enough arguments"
 	else
-		blkremovefile="$1"
-		blklog "| REMOVE START      | start removing file"
-		rm -f $BLK_BACKUPDIR/$blkremovefile.tar.gz*
-		blklog "| REMOVE DONE       | files $blkremovefile.tar.gz* removed"
+		(
+			blkremovefile="$1"
+			blklog "| REMOVE START      | start removing file"
+			rm -f $BLK_BACKUPDIR/$blkremovefile.tar.gz*
+			blklog "| REMOVE DONE       | files $blkremovefile.tar.gz* removed"
+		)
 	fi
 }
 
 # function to specify the whole backup flow
-blkbackup() {
+blkback() {
 	if [ -z "$1" ] && [ -z "$2" ] && [ -z "$3" ]
 	then
-		blklog "| FUNCTION ERROR    | blkbackup didn't get enough arguments"
+		blklog "| FUNCTION ERROR    | blkback didn't get enough arguments"
 	else
 		kind="$1"
 		dir="$2"
@@ -319,33 +331,17 @@ blkmain() {
 	echo "| for more information mailto: <ike DOT devolder AT gmail DOT com>            |"
 	echo "+-----------------------------------------------------------------------------+"
 	echo "+-- version $version --+"
+	echo " "
 
+
+	# write header of the logfile
+	echo "+-----------------------------+"
+	echo "| BLACK BACKUP LOG `date +%Y-%m-%d` |"
+	echo "+-----------------------------+"
+	echo " "
 	blkstarttime=`date +%s`
+	echo "[`date +%T`] : +++ BACKUP STARTED +++"
 
-	if [ $blkcontinue -eq 1 ]
-	then
-		blkcreatelogdir
-		errval=$?
-		if [ $errval -eq 0 ]
-		then
-			blkcontinue=1
-		else
-			blkcontinue=0
-			BLK_EXIT_STATUS=$errval
-		fi
-	fi
-	if [ $blkcontinue -eq 1 ]
-	then
-		blkcreatelogfile
-		errval=$?
-		if [ $errval -eq 0 ]
-		then
-			blkcontinue=1
-		else
-			blkcontinue=0
-			BLK_EXIT_STATUS=$errval
-		fi
-	fi
 	if [ $blkcontinue -eq 1 ]
 	then
 		blkcreatebasedir
@@ -422,9 +418,9 @@ blkmain() {
 						blklog "+++ DIR: $homed +++"
 						if [ "$BLK_HOME_DIRS" != "" ]
 						then
-							blkbackup "home" "$homed/$BLK_HOME_DIRS" "$basefilename.$BLK_BACK_DT"
+							blkback "home" "$homed/$BLK_HOME_DIRS" "$basefilename.$BLK_BACK_DT"
 						else
-							blkbackup "home" "$homed" "$basefilename.$BLK_BACK_DT"
+							blkback "home" "$homed" "$basefilename.$BLK_BACK_DT"
 						fi
 					done
 				fi
@@ -436,13 +432,15 @@ blkmain() {
 
 			if [ "$BLK_SVDATADR" != "" ]
 			then
+				blklog "+++ SPECIAL: stop services +++"
 				blkstopservices
 				for datadir in $BLK_SVDATADR
 				do
-					basefilename="data.`echo ${datadir//\//_}`"
+					basefilename="data.`echo ${datadir//\//}`"
 					blklog "+++ DIR: $datadir +++"
-					blkbackup "data" "$datadir" "$basefilename.$BLK_BACK_DT"
+					blkback "data" "$datadir" "$basefilename.$BLK_BACK_DT"
 				done
+				blklog "+++ SPECIAL: start services +++"
 				blkstartservices
 			fi
 
@@ -450,9 +448,9 @@ blkmain() {
 			then
 				for datadir in $BLK_DATADIRS
 				do
-					basefilename="data.`echo ${datadir//\//_}`"
+					basefilename="data.`echo ${datadir//\//}`"
 					blklog "+++ DIR: $datadir +++"
-					blkbackup "data" "$datadir" "$basefilename.$BLK_BACK_DT"
+					blkback "data" "$datadir" "$basefilename.$BLK_BACK_DT"
 				done
 			fi
 
@@ -462,9 +460,9 @@ blkmain() {
 
 			if [ "$BLK_SETTINGS" != "" ]
 			then
-				basefilename="sett.`echo ${BLK_SETTINGS//\//_}`"
+				basefilename="sett.`echo ${BLK_SETTINGS//\//}`"
 				blklog "+++ DIR: $BLK_SETTINGS +++"
-				blkbackup "sett" "$BLK_SETTINGS" "$basefilename.$BLK_BACK_DT"
+				blkback "sett" "$BLK_SETTINGS" "$basefilename.$BLK_BACK_DT"
 			fi
 
 		fi
@@ -481,5 +479,9 @@ blkmain() {
 	exit $BLK_EXIT_STATUS
 }
 
-blkmain
+blkcreatelogdir
+[ $? -ne 0 ] && exit 1
+blkcreatelogfile
+[ $? -ne 0 ] && exit 2
+blkmain | tee $BLK_LOGFILE
 

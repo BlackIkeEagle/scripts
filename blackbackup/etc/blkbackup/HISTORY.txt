@@ -12,6 +12,19 @@
 ###############################################################################
 # Version History                                                             #
 #                                                                             #
+# 1.8.6                                                                       #
+# -----                                                                       #
+# 1.8.5 Got skipped because of continuous reworking                           #
+# - reworked logging                                                          #
+# - changed order of actions                                                  #
+#   - if more than one file, cleanup old files                                #
+#   - backup action                                                           #
+#     - on failed backup remove files                                         #
+#     - on successfull backup create checksums                                #
+#       - remove files if checksum fails                                      #
+# - fixed some minor bugs                                                     #
+# - cleanup some code                                                         #
+#                                                                             #
 # 1.8.4                                                                       #
 # -----                                                                       #
 # finally implemented keep stuff, keep 3 days by default                      #
