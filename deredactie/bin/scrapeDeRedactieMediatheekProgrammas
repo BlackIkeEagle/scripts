@@ -17,7 +17,7 @@ VRT_PRG_DOWNURL='http://media.vrtnieuws.net'
 #lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:mv0:trell:v4mv:cbp:last_pred=3:predia=2:dia=2:vmax_b_frames=2:vb_strategy=1:precmp=2:cmp=2:subcmp=2:preme=2:qns=2" # extreme quality
 #lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:trell:v4mv:last_pred=2:dia=-1:vmax_b_frames=2:vb_strategy=1:cmp=3:subcmp=3:precmp=0:vqcomp=0.6:turbo" # high quality
 #lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:trell:v4mv:turbo" # fast
-lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:turbo" # realtime
+#lavcopts="vcodec=mpeg4:vbitrate=1000:mbd=2:turbo" # realtime
 targetdir='.'
 
 function downloadencode() {
@@ -25,14 +25,19 @@ function downloadencode() {
 	file_flv="${1}"
 	file_out="${2}"
 	[ -f ${targetdir}/${file_out}.avi ] && echo " >> Was Done Before ${file_out}" && return 2
+	[ -f ${targetdir}/${file_out}.mkv ] && echo " >> Was Done Before ${file_out}" && return 2
 	echo " >> Download ${file_out}"
-	wget -q -c -O /tmp/${file_out}.flv ${VRT_PRG_DOWNURL}/${file_flv}
+	wget -c -O /tmp/${file_out}.flv ${VRT_PRG_DOWNURL}/${file_flv}
 	if file /tmp/${file_out}.flv | grep -q "Macromedia Flash Video"; then
 		echo " >> Encode ${file_out}"
-		mencoder /tmp/${file_out}.flv \
-			-ovc lavc -lavcopts ${lavcopts} \
-			-oac mp3lame -lameopts fast:preset=standard \
-			-o ${targetdir}/${file_out}.avi > /dev/null 2>&1
+		#mencoder /tmp/${file_out}.flv \
+			#-ovc lavc -lavcopts ${lavcopts} \
+			#-oac mp3lame -lameopts fast:preset=standard \
+			#-o ${targetdir}/${file_out}.avi > /dev/null 2>&1
+		ffmpeg -i /tmp/${file_out}.flv \
+			-vcodec copy \
+			-acodec copy \
+			-y ${targetdir}/${file_out}.mkv #> /dev/null 2>&1
 	fi
 	echo " >> Done ${file_out}"
 	return 0
@@ -112,9 +117,10 @@ case $1 in
 			tmp=$(mktemp)
 			wget -q -O ${tmp} ${url}
 			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
-			url_title=$(echo `egrep "var title" ${tmp} | sed "s/\(^.*('\)\(Panorama: \)\(.*\)\(').*$\)/\3/g"` | tr '[:upper:]' '[:lower:]')
+			url_title=$(echo `egrep "var.*title" ${tmp} | sed "s/\(^.*('\)\(Panorama: \)\(.*\)\(').*$\)/\3/g"` | tr '[:upper:]' '[:lower:]')
 			file_out="${url_date}-${1}-${url_title// /-}"
 			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			echo ${url_title}
 			downloadencode "${file_flv}" "${file_out}"
 			rm -f /tmp/${file_out}.flv
 			rm -f ${tmp}
@@ -156,6 +162,39 @@ case $1 in
 			file_out="${url_date}-${1}"
 			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
 			downloadencode "${file_flv}" "${file_out}"
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	devloekvanosama)
+		echo "Scrape Vrt De Vloek van Osama"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/De%2Bvloek%2Bvan%2Bosama?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*De vloek van Osama" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			echo "${url}"
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			url_title=$(echo `egrep "var.*title" ${tmp} | sed "s/.*var.*title.*=.*('\(.*\)').*/\1/"` | tr '[:upper:]' '[:lower:]')
+			file_out="${url_date}-${url_title}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out// /_}"
+			echo $?
+			rm -f /tmp/${file_out}.flv
+			rm -f ${tmp}
+		done
+	;;
+	backintheussr)
+		echo "Scrape Vrt Back in the USSR"
+		for url in $(wget -O - "${VRT_PRG_BASEURL}/2.18127?view=shortcutDepartment&shortcutView=defaultList" 2> /dev/null | egrep "popupPlayer.*Back in the USSR" | sed 's/\(^.*a href="\)\(.*\)\(" title.*$\)/\2/g'); do
+			tmp=$(mktemp)
+			echo "${url}"
+			wget -q -O ${tmp} ${url}
+			url_date=$(date -d `grep longdesc ${tmp} | sed 's/\(^.*\)\(\([0-9]\{2\}\)\/\([0-9]\{2\}\)\/\([0-9]\{2\}\)\)\(.*$\)/\5\4\3/g'` '+%Y-%m-%d')
+			url_title=$(echo `egrep "var.*title" ${tmp} | sed "s/.*var.*title.*=.*('\(.*\)').*/\1/"` | tr '[:upper:]' '[:lower:]')
+			echo ${url_date}
+			echo ${url_title}
+			file_out="${url_date}-${url_title}"
+			file_flv=$(grep rtmpPath ${tmp} | sed "s/\(^.* = '\)\(.*\)\(';.*$\)/\2/g")
+			downloadencode "${file_flv}" "${file_out// /_}"
 			rm -f /tmp/${file_out}.flv
 			rm -f ${tmp}
 		done
