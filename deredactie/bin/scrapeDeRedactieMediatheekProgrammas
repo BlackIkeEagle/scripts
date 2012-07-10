@@ -22,7 +22,7 @@ targetdir='.'
 
 function downloadencode() {
 	[ ${#} -eq 2 ] || return 1
-	file_flv="${1}"
+	file_flv="${1//\\/}"
 	file_out="${2}"
 	[ -f ${targetdir}/${file_out}.avi ] && echo " >> Was Done Before ${file_out}" && return 2
 	[ -f ${targetdir}/${file_out}.mkv ] && echo " >> Was Done Before ${file_out}" && return 2
