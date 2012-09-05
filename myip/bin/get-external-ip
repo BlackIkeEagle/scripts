@@ -1,12 +1,11 @@
 #!/bin/bash
 xc=1
 until (( xc == 0 )) ; do
-	case $(( RANDOM % 5 )) in
+	case $(( RANDOM % 4 )) in
 		0) ip=$(wget -t 2 -T 5 -q -O- http://automation.whatismyip.com/n09230945.asp) ;;
-		1) ip=$(wget -t 2 -T 5 -q -O- http://cfaj.freeshell.org/ipaddr.cgi) ;;
-		2) ip=$(wget -t 2 -T 5 -q -O- https://secure.informaction.com/ipecho/) ;;
-		3) ip=$(wget -t 2 -T 5 -q -O- http://icanhazip.com/) ;;
-		4) ip=$(wget -t 2 -T 5 -q -O- http://checkip.dyndns.org/) ;;
+		1) ip=$(wget -t 2 -T 5 -q -O- https://secure.informaction.com/ipecho/) ;;
+		2) ip=$(wget -t 2 -T 5 -q -O- http://icanhazip.com/) ;;
+		3) ip=$(wget -t 2 -T 5 -q -O- http://checkip.dyndns.org/) ;;
 	esac
 
 	xc=$?
